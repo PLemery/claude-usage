@@ -1,0 +1,5 @@
+{"type":"permission-mode","permissionMode":"default"}
+{"type":"assistant","timestamp":"2026-04-11T17:30:00.000Z","sessionId":"s1","cwd":"/Users/me/Documents/Projects/Reminders","message":{"role":"assistant","model":"claude-sonnet-4-6","usage":{"input_tokens":10,"output_tokens":20,"cache_creation_input_tokens":5,"cache_read_input_tokens":1000}}}
+{"type":"user","timestamp":"2026-04-11T17:31:00.000Z","message":{"role":"user","content":"hi"}}
+{"type":"assistant","timestamp":"2026-04-11T17:32:33.357Z","sessionId":"s1","cwd":"/Users/me/Documents/Projects/Reminders","message":{"role":"assistant","model":"claude-sonnet-4-6","usage":{"input_tokens":3,"output_tokens":184,"cache_creation_input_tokens":127,"cache_read_input_tokens":93489}}}
+{"type":"assistant","timestamp":"2026-04-11T17:33:00.000Z","message":{"role":"assistant","model":"<synthetic>","usage":{"input_tokens":0,"output_tokens":0,"cache_creation_input_tokens":0,"cache_read_input_tokens":0}}}

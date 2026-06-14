@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import AppKit
 import ClaudeUsageCore
 
 @MainActor
@@ -39,6 +40,16 @@ final class AppViewModel: ObservableObject {
         case .ok: return .green
         case .warn: return .yellow
         case .critical: return .red
+        }
+    }
+
+    /// AppKit equivalent, for the menu-bar number (which must be drawn as a
+    /// non-template image so macOS doesn't strip the color to monochrome).
+    static func nsColor(for fraction: Double) -> NSColor {
+        switch UsageLevel.level(for: fraction) {
+        case .ok: return .systemGreen
+        case .warn: return .systemYellow
+        case .critical: return .systemRed
         }
     }
 }

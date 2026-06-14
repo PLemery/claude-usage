@@ -30,4 +30,25 @@ final class LocalStatsTests: XCTestCase {
         // newest turn is Beta's: input side = 50 + 0 + 150000 = 150050
         XCTAssertEqual(stats.currentContextTokens, 150050)
     }
+
+    func testCurrentSessionSummary() throws {
+        let s = try XCTUnwrap(try LocalStats.scan(projectsRoot: makeTree()).currentSession)
+        XCTAssertEqual(s.projectName, "Beta")
+        XCTAssertEqual(s.sessionId, "b")
+        XCTAssertEqual(s.shortId, "b")
+        XCTAssertEqual(s.turns, 1)
+        XCTAssertEqual(s.model, "Sonnet 4.6")
+        XCTAssertEqual(s.contextTokens, 150050)
+        XCTAssertEqual(s.windowTokens, 200_000)
+        XCTAssertEqual(s.fraction, 150050.0 / 200_000.0, accuracy: 0.0001)
+        // fresh input = 50 (+0 cacheCreation), output = 10 → ratio 5:1
+        XCTAssertEqual(s.inputOutputRatio, 5.0, accuracy: 0.0001)
+        XCTAssertFalse(s.isLongConversation)   // 1 turn
+    }
+
+    func testFriendlyModelNaming() {
+        XCTAssertEqual(LocalStats.friendlyModel("claude-opus-4-8"), "Opus 4.8")
+        XCTAssertEqual(LocalStats.friendlyModel("claude-sonnet-4-6"), "Sonnet 4.6")
+        XCTAssertEqual(LocalStats.friendlyModel("haiku"), "Haiku")
+    }
 }

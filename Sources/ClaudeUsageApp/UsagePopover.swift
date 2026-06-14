@@ -16,15 +16,14 @@ struct UsagePopover: View {
                 row(title: "Extra usage",
                     trailing: "$\(String(format: "%.2f", w.used)) / $\(String(format: "%.2f", w.limit))")
                 ProgressView(value: min(w.utilization, 1))
+                    .tint(AppViewModel.color(for: w.utilization))
                 Text("$\(String(format: "%.2f", w.remaining)) left this month")
                     .font(.caption).foregroundStyle(.secondary)
             }
 
-            if let ctx = vm.stats?.currentContextTokens {
+            if let s = vm.stats?.currentSession {
                 Divider()
-                let frac = Double(ctx) / Double(ClaudeUsageCore.contextWindowTokens)
-                row(title: "Context", trailing: "\(Int((frac*100).rounded()))%")
-                ProgressView(value: min(frac, 1))
+                contextSection(s)
             }
 
             if let projects = vm.stats?.projects, !projects.isEmpty {
@@ -41,13 +40,6 @@ struct UsagePopover: View {
             }
 
             Divider()
-            Toggle("Launch at login", isOn: Binding(
-                get: { LoginItem.isEnabled },
-                set: { LoginItem.set($0) }
-            ))
-            .toggleStyle(.switch)
-            .font(.caption)
-
             HStack {
                 if let t = vm.lastUpdated {
                     Text("Updated \(t.formatted(date: .omitted, time: .shortened))")
@@ -59,7 +51,43 @@ struct UsagePopover: View {
             }
         }
         .padding(14)
-        .frame(width: 320)
+        .frame(width: 340)
+    }
+
+    // MARK: - Sections
+
+    @ViewBuilder private func contextSection(_ s: SessionContext) -> some View {
+        // Header: title + colored status dot + %
+        HStack {
+            Text("Context").bold()
+            Spacer()
+            Circle().fill(AppViewModel.color(for: s.fraction)).frame(width: 9, height: 9)
+            Text(pct(s.fraction)).bold().monospacedDigit()
+        }
+        // Which chat
+        Text("\(s.projectName) · \(s.shortId)")
+            .font(.caption).foregroundStyle(.secondary).lineLimit(1)
+        // Duration · last activity · rate
+        Text("\(durationStr(s.duration)) · \(s.lastActivity.formatted(.relative(presentation: .named))) · \(rateStr(s.tokensPerMinute))")
+            .font(.caption).foregroundStyle(.secondary)
+        ProgressView(value: min(s.fraction, 1))
+            .tint(AppViewModel.color(for: s.fraction))
+        // Usable / window + turns · model
+        HStack {
+            Text("~\(format(s.contextTokens)) of \(format(s.windowTokens)) usable")
+            Spacer()
+            Text("\(s.turns) turns · \(s.model)")
+        }
+        .font(.caption).foregroundStyle(.secondary)
+        // Insights
+        if s.isLongConversation {
+            Label("Long conversation (\(s.turns) turns)", systemImage: "exclamationmark.triangle.fill")
+                .font(.caption).foregroundStyle(.orange)
+        }
+        if s.isHighIORatio {
+            Label("High input-to-output ratio (\(Int(s.inputOutputRatio)):1)", systemImage: "info.circle")
+                .font(.caption).foregroundStyle(.secondary)
+        }
     }
 
     @ViewBuilder private func window(_ title: String, _ w: LimitWindow?) -> some View {
@@ -67,21 +95,39 @@ struct UsagePopover: View {
             HStack {
                 Text(title).bold()
                 Spacer()
-                Text(w.map { "\(Int(($0.fraction*100).rounded()))%" } ?? "—")
+                Text(w.map { pct($0.fraction) } ?? "—").monospacedDigit()
             }
             ProgressView(value: min(w?.fraction ?? 0, 1))
-            if let w { Text("Resets \(w.resetsAt.formatted(.relative(presentation: .named)))")
-                .font(.caption).foregroundStyle(.secondary) }
+                .tint(AppViewModel.color(for: w?.fraction ?? 0))
+            if let w {
+                Text("Resets \(w.resetsAt.formatted(.relative(presentation: .named)))")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
         }
     }
 
     private func row(title: String, trailing: String) -> some View {
-        HStack { Text(title).bold(); Spacer(); Text(trailing) }
+        HStack { Text(title).bold(); Spacer(); Text(trailing).monospacedDigit() }
     }
 
+    // MARK: - Formatting
+
+    private func pct(_ f: Double) -> String { "\(Int((f * 100).rounded()))%" }
+
     private func format(_ n: Int) -> String {
-        if n >= 1_000_000 { return String(format: "%.1fM", Double(n)/1_000_000) }
-        if n >= 1_000 { return "\(n/1000)K" }
+        if n >= 1_000_000 { return String(format: "%.1fM", Double(n) / 1_000_000) }
+        if n >= 1_000 { return "\(n / 1000)K" }
         return "\(n)"
+    }
+
+    private func durationStr(_ t: TimeInterval) -> String {
+        let mins = Int(t / 60)
+        if mins < 60 { return "\(mins)m" }
+        return "\(mins / 60)h \(mins % 60)m"
+    }
+
+    private func rateStr(_ perMin: Double) -> String {
+        if perMin >= 1000 { return String(format: "%.1fK/min", perMin / 1000) }
+        return "\(Int(perMin))/min"
     }
 }

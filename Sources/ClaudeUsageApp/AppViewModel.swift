@@ -13,7 +13,8 @@ final class AppViewModel: ObservableObject {
 
     func start() {
         Task { await refresh() }
-        timer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
+        LoginItem.promptForLaunchAtLoginIfNeeded()
+        timer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
             Task { await self?.refresh() }
         }
     }
@@ -30,10 +31,13 @@ final class AppViewModel: ObservableObject {
         return "\(Int((f * 100).rounded()))%"
     }
 
-    var menuBarColor: Color {
-        switch UsageLevel.level(for: snapshot?.fiveHour?.fraction ?? 0) {
+    var menuBarColor: Color { Self.color(for: snapshot?.fiveHour?.fraction ?? 0) }
+
+    /// Shared green/yellow/red mapping used by the menu-bar label and every progress bar.
+    static func color(for fraction: Double) -> Color {
+        switch UsageLevel.level(for: fraction) {
         case .ok: return .green
-        case .warn: return .orange
+        case .warn: return .yellow
         case .critical: return .red
         }
     }

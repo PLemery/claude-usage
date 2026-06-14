@@ -41,6 +41,13 @@ struct UsagePopover: View {
             }
 
             Divider()
+            Toggle("Launch at login", isOn: Binding(
+                get: { LoginItem.isEnabled },
+                set: { LoginItem.set($0) }
+            ))
+            .toggleStyle(.switch)
+            .font(.caption)
+
             HStack {
                 if let t = vm.lastUpdated {
                     Text("Updated \(t.formatted(date: .omitted, time: .shortened))")

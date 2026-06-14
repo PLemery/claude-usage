@@ -7,13 +7,19 @@ import AppKit
 /// color (auto-contrasting against light or dark wallpapers).
 struct MenuBarLabel: View {
     @ObservedObject var vm: AppViewModel
+    @ObservedObject var auth: AuthManager
 
     var body: some View {
         HStack(spacing: 3) {
-            Image(nsImage: Self.dot(AppViewModel.nsColor(for: vm.snapshot?.fiveHour?.fraction ?? 0)))
-                .renderingMode(.original)
+            Image(nsImage: Self.dot(dotColor)).renderingMode(.original)
             Text(vm.menuBarText).monospacedDigit()
         }
+    }
+
+    /// Grey when signed out (or no data yet); otherwise the status color.
+    private var dotColor: NSColor {
+        guard auth.isSignedIn, let f = vm.snapshot?.fiveHour?.fraction else { return .systemGray }
+        return AppViewModel.nsColor(for: f)
     }
 
     private static func dot(_ color: NSColor, diameter: CGFloat = 8) -> NSImage {

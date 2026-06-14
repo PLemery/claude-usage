@@ -19,9 +19,9 @@ struct ClaudeUsageApp: App {
 
     var body: some Scene {
         MenuBarExtra {
-            UsagePopover(vm: delegate.vm)
+            UsagePopover(vm: delegate.vm, auth: delegate.vm.auth)
         } label: {
-            MenuBarLabel(vm: delegate.vm)
+            MenuBarLabel(vm: delegate.vm, auth: delegate.vm.auth)
         }
         .menuBarExtraStyle(.window)
     }

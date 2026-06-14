@@ -10,9 +10,11 @@ final class AppViewModel: ObservableObject {
     @Published var lastUpdated: Date?
     @Published var errorText: String?
 
+    let auth = AuthManager()
     private var timer: Timer?
 
     func start() {
+        auth.onAuthChange = { [weak self] in Task { await self?.refresh() } }
         Task { await refresh() }
         LoginItem.promptForLaunchAtLoginIfNeeded()
         timer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
@@ -21,8 +23,13 @@ final class AppViewModel: ObservableObject {
     }
 
     func refresh() async {
-        do { snapshot = try await UsageAPIClient.fetch(); errorText = nil }
-        catch { errorText = "Limits unavailable" }
+        if let token = await auth.validAccessToken() {
+            do { snapshot = try await UsageAPIClient.fetch(accessToken: token); errorText = nil }
+            catch { errorText = "Limits unavailable" }
+        } else {
+            snapshot = nil          // signed out — the popover shows a sign-in prompt
+            errorText = nil
+        }
         stats = try? LocalStats.scan(projectsRoot: LocalStats.defaultProjectsRoot())
         lastUpdated = Date()
     }

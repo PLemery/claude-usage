@@ -37,10 +37,9 @@ public enum UsageAPIClient {
     /// Endpoint + headers confirmed by the Task 2 spike (HTTP 200).
     static let endpoint = URL(string: "https://api.anthropic.com/api/oauth/usage")!
 
-    public static func fetch(session: URLSession = .shared) async throws -> UsageSnapshot {
-        guard let token = KeychainReader.claudeAccessToken() else { throw UsageAPIError.notSignedIn }
+    public static func fetch(accessToken: String, session: URLSession = .shared) async throws -> UsageSnapshot {
         var req = URLRequest(url: endpoint)
-        req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        req.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
         req.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")        // REQUIRED — 401 without it
         req.setValue("oauth-2025-04-20", forHTTPHeaderField: "anthropic-beta")
         req.setValue("ClaudeUsage/1.0 (macOS menu bar)", forHTTPHeaderField: "User-Agent")

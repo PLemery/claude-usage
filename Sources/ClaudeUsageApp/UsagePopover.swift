@@ -3,22 +3,28 @@ import ClaudeUsageCore
 
 struct UsagePopover: View {
     @ObservedObject var vm: AppViewModel
+    @ObservedObject var auth: AuthManager
+    @State private var pasteText = ""
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Claude Usage").font(.headline)
 
-            window("5-Hour", vm.snapshot?.fiveHour)
-            window("7-Day", vm.snapshot?.sevenDay)
+            if auth.isSignedIn {
+                window("5-Hour", vm.snapshot?.fiveHour)
+                window("7-Day", vm.snapshot?.sevenDay)
 
-            if let w = vm.snapshot?.wallet, w.isEnabled {
-                Divider()
-                row(title: "Extra usage",
-                    trailing: "$\(String(format: "%.2f", w.used)) / $\(String(format: "%.2f", w.limit))")
-                ProgressView(value: min(w.utilization, 1))
-                    .tint(AppViewModel.color(for: w.utilization))
-                Text("$\(String(format: "%.2f", w.remaining)) left this month")
-                    .font(.caption).foregroundStyle(.secondary)
+                if let w = vm.snapshot?.wallet, w.isEnabled {
+                    Divider()
+                    row(title: "Extra usage",
+                        trailing: "$\(String(format: "%.2f", w.used)) / $\(String(format: "%.2f", w.limit))")
+                    ProgressView(value: min(w.utilization, 1))
+                        .tint(AppViewModel.color(for: w.utilization))
+                    Text("$\(String(format: "%.2f", w.remaining)) left this month")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+            } else {
+                signInCard
             }
 
             if let s = vm.stats?.currentSession {
@@ -47,6 +53,7 @@ struct UsagePopover: View {
                 }
                 Spacer()
                 Button("Refresh") { Task { await vm.refresh() } }
+                if auth.isSignedIn { Button("Sign out") { auth.signOut() } }
                 Button("Quit") { NSApplication.shared.terminate(nil) }
             }
         }
@@ -54,32 +61,64 @@ struct UsagePopover: View {
         .frame(width: 340)
     }
 
-    // MARK: - Sections
+    // MARK: - Sign-in
+
+    @ViewBuilder private var signInCard: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Sign in to see your limits").font(.subheadline).bold()
+            Text("Connects to your Claude account to read your usage. Works for any Claude plan.")
+                .font(.caption).foregroundStyle(.secondary)
+
+            if auth.inProgress {
+                if auth.awaitingPaste {
+                    TextField("Paste the code from your browser", text: $pasteText)
+                        .textFieldStyle(.roundedBorder)
+                    HStack {
+                        Button("Submit") { auth.submitPaste(pasteText); pasteText = "" }
+                            .disabled(pasteText.trimmingCharacters(in: .whitespaces).isEmpty)
+                        Button("Cancel") { auth.cancel() }
+                    }
+                } else {
+                    HStack {
+                        Button("Paste a code instead") { auth.switchToPaste() }
+                        Spacer()
+                        Button("Cancel") { auth.cancel() }
+                    }.font(.caption)
+                }
+            } else {
+                Button("Sign in with Claude") { auth.signIn() }
+                    .buttonStyle(.borderedProminent)
+                Button("Use my Claude Code login") { auth.useClaudeCodeLogin() }
+                    .font(.caption).buttonStyle(.link)
+            }
+
+            if let s = auth.status {
+                Text(s).font(.caption).foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    // MARK: - Context
 
     @ViewBuilder private func contextSection(_ s: SessionContext) -> some View {
-        // Header: title + colored status dot + %
         HStack {
             Text("Context").bold()
             Spacer()
             Circle().fill(AppViewModel.color(for: s.fraction)).frame(width: 9, height: 9)
             Text(pct(s.fraction)).bold().monospacedDigit()
         }
-        // Which chat
         Text("\(s.projectName) · \(s.shortId)")
             .font(.caption).foregroundStyle(.secondary).lineLimit(1)
-        // Duration · last activity · rate
         Text("\(durationStr(s.duration)) · \(s.lastActivity.formatted(.relative(presentation: .named))) · \(rateStr(s.tokensPerMinute))")
             .font(.caption).foregroundStyle(.secondary)
         ProgressView(value: min(s.fraction, 1))
             .tint(AppViewModel.color(for: s.fraction))
-        // Usable / window + turns · model
         HStack {
             Text("~\(format(s.contextTokens)) of \(format(s.windowTokens)) usable")
             Spacer()
             Text("\(s.turns) turns · \(s.model)")
         }
         .font(.caption).foregroundStyle(.secondary)
-        // Insights
         if s.isLongConversation {
             Label("Long conversation (\(s.turns) turns)", systemImage: "exclamationmark.triangle.fill")
                 .font(.caption).foregroundStyle(.orange)

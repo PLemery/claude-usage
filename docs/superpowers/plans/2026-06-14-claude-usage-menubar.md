@@ -713,7 +713,9 @@ git commit -m "feat: aggregate per-project usage and current context from disk"
 
 ## Task 8: Keychain reader + usage API client
 
-Network/Keychain code is verified by running against the real machine, not unit tests. **Implement the branch the Task 2 spike selected.**
+**Spike result: EXACT MODE confirmed.** The endpoint, headers, and JSON shape below are real (verified HTTP 200 in Task 2). The estimate-mode fallback is retained only for resilience if the endpoint ever changes.
+
+The live `fetch()` (network/Keychain) is verified by running on the real machine, but `decode()` is now **unit-testable** against `Fixtures/usage-response.json` — write that test first (TDD): assert `fiveHour.fraction == 0.18`, `sevenDay.fraction == 0.02`, `wallet.used == 8.09`, `wallet.limit == 20.0`, `wallet.isEnabled == true`. The `decode` and `parseDate` methods are `static` and `internal`, reachable from tests via `@testable import`.
 
 **Files:**
 - Create: `Sources/ClaudeUsageCore/KeychainReader.swift`
@@ -765,50 +767,88 @@ public struct LimitWindow: Equatable {
     public init(fraction: Double, resetsAt: Date) { self.fraction = fraction; self.resetsAt = resetsAt }
 }
 
+/// Extra-usage ("wallet") balance from the API's `extra_usage` object.
+/// `used`/`limit` are stored in whole currency units (the API returns minor units
+/// i.e. cents, so the decoder divides by 100).
+public struct Wallet: Equatable {
+    public var isEnabled: Bool
+    public var used: Double          // currency units, e.g. dollars
+    public var limit: Double         // currency units
+    public var utilization: Double   // 0.0–1.0
+    public var currency: String
+    public var remaining: Double { max(limit - used, 0) }
+    public init(isEnabled: Bool, used: Double, limit: Double, utilization: Double, currency: String) {
+        self.isEnabled = isEnabled; self.used = used; self.limit = limit
+        self.utilization = utilization; self.currency = currency
+    }
+}
+
 public struct UsageSnapshot: Equatable {
     public var fiveHour: LimitWindow?
     public var sevenDay: LimitWindow?
-    public var walletUSD: Double?     // extra-usage credit balance, if the API exposes it
-    public init(fiveHour: LimitWindow?, sevenDay: LimitWindow?, walletUSD: Double? = nil) {
-        self.fiveHour = fiveHour; self.sevenDay = sevenDay; self.walletUSD = walletUSD
+    public var wallet: Wallet?        // extra-usage balance, if exposed
+    public init(fiveHour: LimitWindow?, sevenDay: LimitWindow?, wallet: Wallet? = nil) {
+        self.fiveHour = fiveHour; self.sevenDay = sevenDay; self.wallet = wallet
     }
 }
 
 public enum UsageAPIError: Error { case notSignedIn, badStatus(Int), decode }
 
 public enum UsageAPIClient {
-    /// URL confirmed by the Task 2 spike.
-    static let endpoint = URL(string: "<USAGE_URL_FROM_SPIKE>")!
+    /// Endpoint + headers confirmed by the Task 2 spike (HTTP 200).
+    static let endpoint = URL(string: "https://api.anthropic.com/api/oauth/usage")!
 
     public static func fetch(session: URLSession = .shared) async throws -> UsageSnapshot {
         guard let token = KeychainReader.claudeAccessToken() else { throw UsageAPIError.notSignedIn }
         var req = URLRequest(url: endpoint)
         req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        req.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")        // REQUIRED — 401 without it
         req.setValue("oauth-2025-04-20", forHTTPHeaderField: "anthropic-beta")
+        req.setValue("ClaudeUsage/1.0 (macOS menu bar)", forHTTPHeaderField: "User-Agent")
         let (data, resp) = try await session.data(for: req)
         guard let http = resp as? HTTPURLResponse else { throw UsageAPIError.badStatus(-1) }
         guard http.statusCode == 200 else { throw UsageAPIError.badStatus(http.statusCode) }
         return try decode(data)
     }
 
-    /// Map the spike's JSON shape into UsageSnapshot. Replace field names with the
-    /// exact ones recorded in Task 2 Step 4.
+    /// Real `/api/oauth/usage` shape (see Fixtures/usage-response.json):
+    ///   { five_hour: {utilization: 0-100, resets_at: ISO8601},
+    ///     seven_day: {...},
+    ///     extra_usage: {is_enabled, monthly_limit, used_credits, utilization, currency} }
+    /// `utilization` is a 0–100 percent; minor units (cents) for credits.
     static func decode(_ data: Data) throws -> UsageSnapshot {
         guard let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             throw UsageAPIError.decode
         }
         func window(_ key: String) -> LimitWindow? {
             guard let w = obj[key] as? [String: Any],
-                  let used = w["utilization"] as? Double,
+                  let util = w["utilization"] as? Double,
                   let resetStr = w["resets_at"] as? String,
-                  let reset = ISO8601DateFormatter().date(from: resetStr) else { return nil }
-            return LimitWindow(fraction: used, resetsAt: reset)
+                  let reset = parseDate(resetStr) else { return nil }
+            return LimitWindow(fraction: util / 100.0, resetsAt: reset)
         }
-        // Wallet/credit balance — replace key path with the one recorded in Task 2.
-        // Common shapes: obj["credit_balance"] as cents (Int) or dollars (Double).
-        let wallet = (obj["credit_balance"] as? Double)
-            ?? (obj["credit_balance"] as? Int).map { Double($0) / 100.0 }
-        return UsageSnapshot(fiveHour: window("five_hour"), sevenDay: window("seven_day"), walletUSD: wallet)
+        var wallet: Wallet?
+        if let e = obj["extra_usage"] as? [String: Any] {
+            let used = (e["used_credits"] as? Double) ?? 0
+            let limit = (e["monthly_limit"] as? Double) ?? Double(e["monthly_limit"] as? Int ?? 0)
+            let util = (e["utilization"] as? Double) ?? 0
+            wallet = Wallet(
+                isEnabled: (e["is_enabled"] as? Bool) ?? false,
+                used: used / 100.0,            // minor units → currency units
+                limit: limit / 100.0,
+                utilization: util / 100.0,
+                currency: (e["currency"] as? String) ?? "USD")
+        }
+        return UsageSnapshot(fiveHour: window("five_hour"), sevenDay: window("seven_day"), wallet: wallet)
+    }
+
+    /// `resets_at` carries fractional seconds and a +00:00 offset.
+    private static func parseDate(_ s: String) -> Date? {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let d = f.date(from: s) { return d }
+        f.formatOptions = [.withInternetDateTime]
+        return f.date(from: s)
     }
 }
 ```
@@ -1013,9 +1053,13 @@ struct UsagePopover: View {
             window("5-Hour", vm.snapshot?.fiveHour)
             window("7-Day", vm.snapshot?.sevenDay)
 
-            if let wallet = vm.snapshot?.walletUSD {
+            if let w = vm.snapshot?.wallet, w.isEnabled {
                 Divider()
-                row(title: "Wallet (extra usage)", trailing: "$\(String(format: "%.2f", wallet))")
+                row(title: "Extra usage",
+                    trailing: "$\(String(format: "%.2f", w.used)) / $\(String(format: "%.2f", w.limit))")
+                ProgressView(value: min(w.utilization, 1))
+                Text("$\(String(format: "%.2f", w.remaining)) left this month")
+                    .font(.caption).foregroundStyle(.secondary)
             }
 
             if let ctx = vm.stats?.currentContextTokens {

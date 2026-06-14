@@ -39,8 +39,8 @@ final class LocalStatsTests: XCTestCase {
         XCTAssertEqual(s.turns, 1)
         XCTAssertEqual(s.model, "Sonnet 4.6")
         XCTAssertEqual(s.contextTokens, 150050)
-        XCTAssertEqual(s.windowTokens, 200_000)
-        XCTAssertEqual(s.fraction, 150050.0 / 200_000.0, accuracy: 0.0001)
+        XCTAssertEqual(s.windowTokens, 1_000_000)   // Sonnet = 1M context window
+        XCTAssertEqual(s.fraction, 150050.0 / 1_000_000.0, accuracy: 0.0001)
         // fresh input = 50 (+0 cacheCreation), output = 10 → ratio 5:1
         XCTAssertEqual(s.inputOutputRatio, 5.0, accuracy: 0.0001)
         XCTAssertFalse(s.isLongConversation)   // 1 turn

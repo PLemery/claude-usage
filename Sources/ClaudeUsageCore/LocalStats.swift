@@ -94,13 +94,21 @@ public enum LocalStats {
         let output = turns.reduce(0) { $0 + $1.usage.output }
         // Most recent real (non-synthetic) model the session used.
         let modelRaw = sorted.reversed().first { !$0.model.lowercased().contains("synthetic") }?.model ?? last.model
-        // We can't read the true window from the file; infer 1M only when usage exceeds 200K.
-        let window = contextTokens > 200_000 ? 1_000_000 : 200_000
+        let window = contextWindow(forModel: modelRaw)
         return SessionContext(projectName: projectName, sessionId: sessionId,
                               model: friendlyModel(modelRaw), turns: turns.count,
                               contextTokens: contextTokens, windowTokens: window,
                               startedAt: first.timestamp, lastActivity: last.timestamp,
                               freshInputTokens: freshInput, outputTokens: output)
+    }
+
+    /// Real context-window size per model family. Opus/Sonnet/Fable/Mythos are 1M;
+    /// Haiku is 200K; unknown models default to a conservative 200K.
+    static func contextWindow(forModel model: String) -> Int {
+        let s = model.lowercased()
+        if s.contains("haiku") { return 200_000 }
+        if s.contains("opus") || s.contains("sonnet") || s.contains("fable") || s.contains("mythos") { return 1_000_000 }
+        return 200_000
     }
 
     /// "claude-opus-4-8" → "Opus 4.8"; "sonnet" → "Sonnet"; unknown → passthrough.

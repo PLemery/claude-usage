@@ -308,7 +308,7 @@ final class JSONLParserTests: XCTestCase {
 
     func testParsesTimestamp() throws {
         let turns = try JSONLParser.parse(fileAt: fixtureURL())
-        XCTAssertEqual(turns[1].timestamp.timeIntervalSince1970, 1776274353.357, accuracy: 0.01)
+        XCTAssertEqual(turns[1].timestamp.timeIntervalSince1970, 1775928753.357, accuracy: 0.01)
     }
 }
 ```

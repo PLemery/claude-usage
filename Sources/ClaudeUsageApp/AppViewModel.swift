@@ -46,9 +46,11 @@ final class AppViewModel: ObservableObject {
                     snapshot = try await UsageAPIClient.fetch(accessToken: token)
                     errorText = nil; cooldownUntil = nil
                 } catch UsageAPIError.rateLimited(let retryAfter) {
-                    let wait = min(max(retryAfter, 60), 3600)
+                    // Honor retry-after + a 5-min buffer so we never poke at the exact
+                    // edge (this endpoint LENGTHENS the penalty on any request while limited).
+                    let wait = min(max(retryAfter, 60) + 300, 7200)
                     errorText = "Rate limited — retries in ~\(Int(wait / 60))m"
-                    cooldownUntil = now.addingTimeInterval(wait)  // obey retry-after; keep last data
+                    cooldownUntil = now.addingTimeInterval(wait)  // keep last data meanwhile
                 } catch {
                     errorText = "Limits unavailable"
                 }

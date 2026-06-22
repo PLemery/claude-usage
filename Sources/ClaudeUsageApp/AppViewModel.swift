@@ -25,7 +25,13 @@ final class AppViewModel: ObservableObject {
     }
 
     func start() {
-        auth.onAuthChange = { [weak self] in Task { await self?.refresh() } }
+        auth.onAuthChange = { [weak self] in
+            // A new token = a fresh per-token rate-limit bucket, so drop any
+            // cooldown the old token earned and fetch right away.
+            self?.cooldownUntil = nil
+            self?.lastNetworkAttempt = nil
+            Task { await self?.refresh() }
+        }
         Task { await refresh() }
         LoginItem.promptForLaunchAtLoginIfNeeded()
         timer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in

@@ -70,20 +70,12 @@ struct UsagePopover: View {
                 .font(.caption).foregroundStyle(.secondary)
 
             if auth.inProgress {
-                if auth.awaitingPaste {
-                    TextField("Paste the code from your browser", text: $pasteText)
-                        .textFieldStyle(.roundedBorder)
-                    HStack {
-                        Button("Submit") { auth.submitPaste(pasteText); pasteText = "" }
-                            .disabled(pasteText.trimmingCharacters(in: .whitespaces).isEmpty)
-                        Button("Cancel") { auth.cancel() }
-                    }
-                } else {
-                    HStack {
-                        Button("Paste a code instead") { auth.switchToPaste() }
-                        Spacer()
-                        Button("Cancel") { auth.cancel() }
-                    }.font(.caption)
+                TextField("Paste the code from your browser", text: $pasteText)
+                    .textFieldStyle(.roundedBorder)
+                HStack {
+                    Button("Submit") { auth.submitPaste(pasteText); pasteText = "" }
+                        .disabled(pasteText.trimmingCharacters(in: .whitespaces).isEmpty)
+                    Button("Cancel") { auth.cancel() }
                 }
             } else {
                 Button("Sign in with Claude") { auth.signIn() }

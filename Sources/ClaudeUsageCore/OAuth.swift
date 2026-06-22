@@ -44,13 +44,15 @@ public enum OAuthError: Error, LocalizedError {
 /// The public Claude Code OAuth client + endpoints (same flow Claude Code uses).
 public enum OAuth {
     public static let clientID = "9d1c250a-e61b-44d9-88ed-5944d1962f5e"
-    public static let authorizeBase = "https://platform.claude.com/oauth/authorize"
-    public static let tokenURL = URL(string: "https://platform.claude.com/v1/oauth/token")!
-    /// Redirect that shows the user a copyable `code#state` (the paste fallback).
-    public static let manualRedirect = "https://platform.claude.com/oauth/code/callback"
-    // Must match Claude Code's subscription scopes — `user:sessions:claude_code`
-    // is what grants usage access. (org:create_api_key mints an API-key token that 403s.)
-    public static let scopes = "user:profile user:inference user:sessions:claude_code user:mcp_servers"
+    // Consumer-subscription OAuth context (claude.ai + console.anthropic.com). The
+    // platform.claude.com endpoints are the developer/console context, where a personal
+    // org's "OAuth not allowed" policy 403s the usage endpoint. These are the well-known
+    // Claude Code / OpenCode constants.
+    public static let authorizeBase = "https://claude.ai/oauth/authorize"
+    public static let tokenURL = URL(string: "https://console.anthropic.com/v1/oauth/token")!
+    /// Redirect that shows the user a copyable `code#state`.
+    public static let manualRedirect = "https://console.anthropic.com/oauth/code/callback"
+    public static let scopes = "org:create_api_key user:profile user:inference"
 
     // MARK: PKCE
 
@@ -120,7 +122,7 @@ public enum OAuth {
             Log.write("oauth token endpoint [\(grant)] 200 but could not parse access_token")
             throw OAuthError.decode
         }
-        Log.write("oauth token endpoint [\(grant)] OK (got access_token, refresh=\(obj["refresh_token"] != nil))")
+        Log.write("oauth token endpoint [\(grant)] OK — granted scope: \(obj["scope"] as? String ?? "?")")
         let expiresIn = (obj["expires_in"] as? Double) ?? 3600
         return OAuthTokens(accessToken: access,
                            refreshToken: obj["refresh_token"] as? String,

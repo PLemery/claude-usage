@@ -49,7 +49,10 @@ public enum UsageAPIClient {
             let retryAfter = http.value(forHTTPHeaderField: "retry-after").flatMap { TimeInterval($0) }
             throw UsageAPIError.rateLimited(retryAfter: retryAfter ?? 300)
         }
-        guard http.statusCode == 200 else { throw UsageAPIError.badStatus(http.statusCode) }
+        guard http.statusCode == 200 else {
+            Log.write("usage HTTP \(http.statusCode): \(String(data: data, encoding: .utf8)?.prefix(300) ?? "")")
+            throw UsageAPIError.badStatus(http.statusCode)
+        }
         return try decode(data)
     }
 

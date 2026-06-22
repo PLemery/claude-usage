@@ -83,9 +83,11 @@ final class AuthManager: ObservableObject {
         if let tokens = KeychainReader.claudeCodeTokens() {
             TokenStore.save(tokens)
             isSignedIn = true; inProgress = false; status = nil
+            Log.write("import: Claude Code login imported, token stored")
             onAuthChange?()
         } else {
             status = "No Claude Code login found on this Mac."
+            Log.write("import: no Claude Code login found / keychain read blocked")
         }
     }
 
@@ -103,14 +105,17 @@ final class AuthManager: ObservableObject {
 
     private func finish(code: String, state: String, redirect: String) async {
         status = "Signing in…"
+        Log.write("sign-in: exchanging code (len=\(code.count)) via redirect=\(redirect)")
         do {
             let tokens = try await OAuth.exchange(code: code, verifier: verifier, state: state, redirect: redirect)
             TokenStore.save(tokens)
             listener?.cancel(); listener = nil
             isSignedIn = true; inProgress = false; awaitingPaste = false; status = nil
+            Log.write("sign-in: SUCCESS, token stored")
             onAuthChange?()
         } catch {
             status = (error as? OAuthError)?.errorDescription ?? error.localizedDescription
+            Log.write("sign-in: FAILED — \(error)")
         }
     }
 

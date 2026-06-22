@@ -51,19 +51,23 @@ final class AppViewModel: ObservableObject {
                 do {
                     snapshot = try await UsageAPIClient.fetch(accessToken: token)
                     errorText = nil; cooldownUntil = nil
+                    Log.write("usage fetch OK — 5h=\(snapshot?.fiveHour?.fraction.description ?? "nil")")
                 } catch UsageAPIError.rateLimited(let retryAfter) {
                     // Honor retry-after + a 5-min buffer so we never poke at the exact
                     // edge (this endpoint LENGTHENS the penalty on any request while limited).
                     let wait = min(max(retryAfter, 60) + 300, 7200)
                     errorText = "Rate limited — retries in ~\(Int(wait / 60))m"
                     cooldownUntil = now.addingTimeInterval(wait)  // keep last data meanwhile
+                    Log.write("usage fetch 429 — retryAfter=\(retryAfter)s")
                 } catch {
                     errorText = "Limits unavailable"
+                    Log.write("usage fetch error: \(error)")
                 }
             }
         } else {
             snapshot = nil          // signed out — the popover shows a sign-in prompt
             errorText = nil
+            Log.write("refresh: no valid access token (signed out / token missing or refresh failed)")
         }
         // Local stats are free to refresh every tick.
         stats = try? LocalStats.scan(projectsRoot: LocalStats.defaultProjectsRoot())

@@ -12,8 +12,17 @@ final class AppViewModel: ObservableObject {
 
     let auth = AuthManager()
     private var timer: Timer?
-    private var cooldownUntil: Date?       // back off after a 429
     private var lastNetworkAttempt: Date?  // throttle the rate-limited usage endpoint
+
+    /// When we may next call the usage endpoint. Persisted so quitting/relaunching
+    /// during a 429 window doesn't re-poke the endpoint and reset its timer.
+    private var cooldownUntil: Date? {
+        get { UserDefaults.standard.object(forKey: "rateLimitedUntil") as? Date }
+        set {
+            if let v = newValue { UserDefaults.standard.set(v, forKey: "rateLimitedUntil") }
+            else { UserDefaults.standard.removeObject(forKey: "rateLimitedUntil") }
+        }
+    }
 
     func start() {
         auth.onAuthChange = { [weak self] in Task { await self?.refresh() } }
@@ -35,9 +44,10 @@ final class AppViewModel: ObservableObject {
                 do {
                     snapshot = try await UsageAPIClient.fetch(accessToken: token)
                     errorText = nil; cooldownUntil = nil
-                } catch UsageAPIError.rateLimited {
-                    errorText = "Rate limited — retrying shortly"
-                    cooldownUntil = now.addingTimeInterval(300)   // back off 5 min, keep last data
+                } catch UsageAPIError.rateLimited(let retryAfter) {
+                    let wait = min(max(retryAfter, 60), 3600)
+                    errorText = "Rate limited — retries in ~\(Int(wait / 60))m"
+                    cooldownUntil = now.addingTimeInterval(wait)  // obey retry-after; keep last data
                 } catch {
                     errorText = "Limits unavailable"
                 }

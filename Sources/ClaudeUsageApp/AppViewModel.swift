@@ -43,9 +43,8 @@ final class AppViewModel: ObservableObject {
         if let token = await auth.validAccessToken() {
             let now = Date()
             let cooling = cooldownUntil.map { now < $0 } ?? false
-            // Throttle the rate-limited usage endpoint to once per 3 minutes —
-            // a 5h/7d gauge barely moves, and this keeps us well clear of the limit.
-            let due = lastNetworkAttempt.map { now.timeIntervalSince($0) >= 180 } ?? true
+            // Refresh the usage limits about once a minute.
+            let due = lastNetworkAttempt.map { now.timeIntervalSince($0) >= 60 } ?? true
             if !cooling && due {
                 lastNetworkAttempt = now
                 do {

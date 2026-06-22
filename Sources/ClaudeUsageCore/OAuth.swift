@@ -48,7 +48,9 @@ public enum OAuth {
     public static let tokenURL = URL(string: "https://platform.claude.com/v1/oauth/token")!
     /// Redirect that shows the user a copyable `code#state` (the paste fallback).
     public static let manualRedirect = "https://platform.claude.com/oauth/code/callback"
-    public static let scopes = "org:create_api_key user:profile user:inference"
+    // Must match Claude Code's subscription scopes — `user:sessions:claude_code`
+    // is what grants usage access. (org:create_api_key mints an API-key token that 403s.)
+    public static let scopes = "user:profile user:inference user:sessions:claude_code user:mcp_servers"
 
     // MARK: PKCE
 

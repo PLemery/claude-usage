@@ -12,7 +12,8 @@ final class AppViewModel: ObservableObject {
 
     let auth = AuthManager()
     private var timer: Timer?
-    private var cooldownUntil: Date?   // back off after a 429
+    private var cooldownUntil: Date?       // back off after a 429
+    private var lastNetworkAttempt: Date?  // throttle the rate-limited usage endpoint
 
     func start() {
         auth.onAuthChange = { [weak self] in Task { await self?.refresh() } }
@@ -25,15 +26,18 @@ final class AppViewModel: ObservableObject {
 
     func refresh() async {
         if let token = await auth.validAccessToken() {
-            if let until = cooldownUntil, Date() < until {
-                // Rate-limited recently: keep the last snapshot, skip the network call.
-            } else {
+            let now = Date()
+            let cooling = cooldownUntil.map { now < $0 } ?? false
+            // Throttle the rate-limited usage endpoint to once per 60s.
+            let due = lastNetworkAttempt.map { now.timeIntervalSince($0) >= 60 } ?? true
+            if !cooling && due {
+                lastNetworkAttempt = now
                 do {
                     snapshot = try await UsageAPIClient.fetch(accessToken: token)
                     errorText = nil; cooldownUntil = nil
                 } catch UsageAPIError.rateLimited {
                     errorText = "Rate limited — retrying shortly"
-                    cooldownUntil = Date().addingTimeInterval(120)   // back off 2 min, keep last data
+                    cooldownUntil = now.addingTimeInterval(300)   // back off 5 min, keep last data
                 } catch {
                     errorText = "Limits unavailable"
                 }
@@ -42,6 +46,7 @@ final class AppViewModel: ObservableObject {
             snapshot = nil          // signed out — the popover shows a sign-in prompt
             errorText = nil
         }
+        // Local stats are free to refresh every tick.
         stats = try? LocalStats.scan(projectsRoot: LocalStats.defaultProjectsRoot())
         lastUpdated = Date()
     }

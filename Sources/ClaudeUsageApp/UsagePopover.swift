@@ -40,7 +40,7 @@ struct UsagePopover: View {
                         Text(p.name).lineLimit(1)
                         Spacer()
                         Text("~$\(p.estimatedCostUSD, specifier: "%.0f")").foregroundStyle(.secondary)
-                        Text(format(p.usage.total)).monospacedDigit().frame(width: 56, alignment: .trailing)
+                        Text(format(p.usage.fresh)).monospacedDigit().frame(width: 56, alignment: .trailing)
                     }.font(.callout)
                 }
             }

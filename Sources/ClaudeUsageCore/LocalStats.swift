@@ -80,7 +80,7 @@ public enum LocalStats {
                                          estimatedCostUSD: CostEstimator.costUSD(of: folderTurns)))
         }
 
-        projects.sort { $0.usage.total > $1.usage.total }
+        projects.sort { $0.usage.fresh > $1.usage.fresh }
         return LocalStatsResult(projects: projects,
                                 currentContextTokens: current?.contextTokens ?? 0,
                                 currentSession: current)

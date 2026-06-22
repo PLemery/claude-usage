@@ -16,8 +16,13 @@ public struct TokenUsage: Equatable {
         self.cacheCreation = cacheCreation; self.cacheRead = cacheRead
     }
 
-    /// Every token billed across this turn (used for project burn totals).
+    /// Every token across this turn, including cache re-reads (inflated by re-reading
+    /// the whole context each turn — not a meaningful "usage" figure).
     public var total: Int { input + output + cacheCreation + cacheRead }
+
+    /// Real content tokens: new input + output + cache writes, EXCLUDING cache reads.
+    /// This is the intuitive "how much have I actually used" number.
+    public var fresh: Int { input + output + cacheCreation }
 
     public static func + (l: TokenUsage, r: TokenUsage) -> TokenUsage {
         TokenUsage(input: l.input + r.input, output: l.output + r.output,

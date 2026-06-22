@@ -31,7 +31,7 @@ public struct UsageSnapshot: Equatable {
     }
 }
 
-public enum UsageAPIError: Error { case notSignedIn, badStatus(Int), decode }
+public enum UsageAPIError: Error { case notSignedIn, badStatus(Int), decode, rateLimited }
 
 public enum UsageAPIClient {
     /// Endpoint + headers confirmed by the Task 2 spike (HTTP 200).
@@ -45,6 +45,7 @@ public enum UsageAPIClient {
         req.setValue("ClaudeUsage/1.0 (macOS menu bar)", forHTTPHeaderField: "User-Agent")
         let (data, resp) = try await session.data(for: req)
         guard let http = resp as? HTTPURLResponse else { throw UsageAPIError.badStatus(-1) }
+        guard http.statusCode != 429 else { throw UsageAPIError.rateLimited }
         guard http.statusCode == 200 else { throw UsageAPIError.badStatus(http.statusCode) }
         return try decode(data)
     }

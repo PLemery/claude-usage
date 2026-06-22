@@ -12,6 +12,7 @@ final class AppViewModel: ObservableObject {
 
     let auth = AuthManager()
     private var timer: Timer?
+    private var cooldownUntil: Date?   // back off after a 429
 
     func start() {
         auth.onAuthChange = { [weak self] in Task { await self?.refresh() } }
@@ -24,8 +25,19 @@ final class AppViewModel: ObservableObject {
 
     func refresh() async {
         if let token = await auth.validAccessToken() {
-            do { snapshot = try await UsageAPIClient.fetch(accessToken: token); errorText = nil }
-            catch { errorText = "Limits unavailable" }
+            if let until = cooldownUntil, Date() < until {
+                // Rate-limited recently: keep the last snapshot, skip the network call.
+            } else {
+                do {
+                    snapshot = try await UsageAPIClient.fetch(accessToken: token)
+                    errorText = nil; cooldownUntil = nil
+                } catch UsageAPIError.rateLimited {
+                    errorText = "Rate limited — retrying shortly"
+                    cooldownUntil = Date().addingTimeInterval(120)   // back off 2 min, keep last data
+                } catch {
+                    errorText = "Limits unavailable"
+                }
+            }
         } else {
             snapshot = nil          // signed out — the popover shows a sign-in prompt
             errorText = nil

@@ -94,7 +94,7 @@ struct UsagePopover: View {
 
     @ViewBuilder private func contextSection(_ s: SessionContext) -> some View {
         HStack {
-            Text("Context").bold()
+            Text("Context (Claude Code)").bold()
             Spacer()
             Circle().fill(AppViewModel.color(for: s.fraction)).frame(width: 9, height: 9)
             Text(pct(s.fraction)).bold().monospacedDigit()

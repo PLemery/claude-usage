@@ -2,19 +2,10 @@ import Foundation
 import CryptoKit
 import Security
 
-/// Lightweight diagnostic log at ~/Library/Logs/ClaudeUsage.log
+/// Diagnostic logging — disabled. Was used to debug the OAuth 403; now a no-op so
+/// nothing is written to disk. (Call sites remain harmless.)
 public enum Log {
-    static let url = FileManager.default.homeDirectoryForCurrentUser
-        .appendingPathComponent("Library/Logs/ClaudeUsage.log")
-    public static func write(_ msg: String) {
-        let line = "\(ISO8601DateFormatter().string(from: Date()))  \(msg)\n"
-        guard let data = line.data(using: .utf8) else { return }
-        if let h = try? FileHandle(forWritingTo: url) {
-            h.seekToEndOfFile(); h.write(data); try? h.close()
-        } else {
-            try? data.write(to: url)
-        }
-    }
+    public static func write(_ msg: String) {}
 }
 
 /// Tokens we obtain from the "Sign in with Claude" flow and store ourselves.

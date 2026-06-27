@@ -126,7 +126,7 @@ struct UsagePopover: View {
             HStack {
                 Text(title).bold()
                 Spacer()
-                Text(w.map { pct($0.fraction) } ?? "—").monospacedDigit()
+                Text(pct(w?.fraction ?? 0)).monospacedDigit()
             }
             ProgressView(value: min(w?.fraction ?? 0, 1))
                 .tint(AppViewModel.color(for: w?.fraction ?? 0))

@@ -74,7 +74,9 @@ final class AppViewModel: ObservableObject {
     }
 
     var menuBarText: String {
-        guard let f = snapshot?.fiveHour?.fraction else { return "—" }
+        // Show — only when signed out; otherwise a missing window reads as 0%.
+        guard auth.isSignedIn else { return "—" }
+        let f = snapshot?.fiveHour?.fraction ?? 0
         return "\(Int((f * 100).rounded()))%"
     }
 

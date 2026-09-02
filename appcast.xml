@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
+  <channel>
+    <title>Claude Usage</title>
+    <link>https://raw.githubusercontent.com/PLemery/claude-usage/main/appcast.xml</link>
+    <description>Updates for Claude Usage</description>
+    <language>en</language>
+    <item>
+      <title>Version 1.2.0</title>
+      <pubDate>Wed, 02 Sep 2026 14:02:04 +0000</pubDate>
+      <sparkle:version>3</sparkle:version>
+      <sparkle:shortVersionString>1.2.0</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
+      <description><![CDATA[
+        <ul>
+          <li>Fully signed and notarized by Apple — no more Gatekeeper warnings</li>
+          <li>Added a custom app icon</li>
+          <li>In-app auto-updates via Sparkle</li>
+        </ul>
+      ]]></description>
+      <enclosure
+        url="https://github.com/PLemery/claude-usage/releases/download/v1.2.0/ClaudeUsage.zip"
+        sparkle:edSignature="gfYYpYYpsYMUm5PZTjweVcmGHZEGvZ71WWKED0C7f4EDz+ZMkjtFIhYJFjy2H9rhjYu7L4N0xIqFChryv5GZBg=="
+        length="2627755"
+        type="application/octet-stream" />
+    </item>
+  </channel>
+</rss>

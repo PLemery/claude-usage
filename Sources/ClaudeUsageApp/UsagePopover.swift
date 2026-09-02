@@ -1,9 +1,11 @@
 import SwiftUI
 import ClaudeUsageCore
+import Sparkle
 
 struct UsagePopover: View {
     @ObservedObject var vm: AppViewModel
     @ObservedObject var auth: AuthManager
+    let updater: SPUUpdater
     @State private var pasteText = ""
 
     var body: some View {
@@ -54,6 +56,7 @@ struct UsagePopover: View {
                 Spacer()
                 Button("Refresh") { Task { await vm.refresh() } }
                 if auth.isSignedIn { Button("Sign out") { auth.signOut() } }
+                Button("Check for Updates…") { updater.checkForUpdates() }
                 Button("Quit") { NSApplication.shared.terminate(nil) }
             }
         }

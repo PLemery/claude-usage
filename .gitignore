@@ -3,3 +3,6 @@
 *.xcodeproj
 ClaudeUsage.app/
 .claude/settings.local.json
+.swiftpm/
+ClaudeUsage.zip
+ClaudeUsage-submission.zip

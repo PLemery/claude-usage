@@ -41,8 +41,8 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <key>CFBundleExecutable</key><string>ClaudeUsage</string>
   <key>CFBundleIconFile</key><string>AppIcon</string>
   <key>CFBundlePackageType</key><string>APPL</string>
-  <key>CFBundleShortVersionString</key><string>1.2${VERSION_SUFFIX}</string>
-  <key>CFBundleVersion</key><string>3</string>
+  <key>CFBundleShortVersionString</key><string>1.2.1${VERSION_SUFFIX}</string>
+  <key>CFBundleVersion</key><string>4</string>
   <key>LSUIElement</key><true/>
   <key>LSMinimumSystemVersion</key><string>13.0</string>
   <key>SUFeedURL</key><string>https://raw.githubusercontent.com/PLemery/claude-usage/main/appcast.xml</string>

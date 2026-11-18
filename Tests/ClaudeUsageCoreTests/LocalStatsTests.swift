@@ -51,4 +51,23 @@ final class LocalStatsTests: XCTestCase {
         XCTAssertEqual(LocalStats.friendlyModel("claude-sonnet-4-6"), "Sonnet 4.6")
         XCTAssertEqual(LocalStats.friendlyModel("haiku"), "Haiku")
     }
+
+    func testPicksUpTurnsAppendedAfterFirstScan() throws {
+        let root = try makeTree()
+        let b = root.appendingPathComponent("-Users-me-Beta/b.jsonl")
+        XCTAssertEqual(try LocalStats.scan(projectsRoot: root).currentSession?.turns, 1)
+
+        // Append a partial line (no newline yet), then complete it — mimics Claude Code mid-write.
+        let line = #"{"type":"assistant","timestamp":"2026-06-15T00:00:00.000Z","cwd":"/Users/me/Beta","message":{"model":"claude-opus-4-8","usage":{"input_tokens":1,"output_tokens":1,"cache_creation_input_tokens":0,"cache_read_input_tokens":0}}}"#
+        let fh = try FileHandle(forWritingTo: b)
+        try fh.seekToEnd()
+        try fh.write(contentsOf: Data(("\n" + line.prefix(40)).utf8))
+        XCTAssertEqual(try LocalStats.scan(projectsRoot: root).currentSession?.turns, 1)
+        try fh.write(contentsOf: Data((line.dropFirst(40) + "\n").utf8))
+        try fh.close()
+
+        let s = try XCTUnwrap(try LocalStats.scan(projectsRoot: root).currentSession)
+        XCTAssertEqual(s.turns, 2)
+        XCTAssertEqual(s.model, "Opus 4.8")
+    }
 }

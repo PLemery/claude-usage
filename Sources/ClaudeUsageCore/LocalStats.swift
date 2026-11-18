@@ -55,17 +55,29 @@ public enum LocalStats {
         var projects: [ProjectUsage] = []
         var newestTs: Date = .distantPast
         var current: SessionContext?
+        let keys: [URLResourceKey] = [.contentModificationDateKey, .fileSizeKey]
 
-        let folders = (try? fm.contentsOfDirectory(at: projectsRoot, includingPropertiesForKeys: nil)) ?? []
+        let folders = (try? fm.contentsOfDirectory(at: projectsRoot, includingPropertiesForKeys: [.isDirectoryKey])) ?? []
         for folder in folders {
             guard (try? folder.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true else { continue }
             var folderUsage = TokenUsage()
             var folderTurns: [TranscriptTurn] = []
-            let projectName = lastCwd(in: folder).map { ($0 as NSString).lastPathComponent } ?? folder.lastPathComponent
 
-            let files = (try? fm.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil)) ?? []
-            for file in files where file.pathExtension == "jsonl" {
-                let turns = (try? JSONLParser.parse(fileAt: file)) ?? []
+            let files = ((try? fm.contentsOfDirectory(at: folder, includingPropertiesForKeys: keys)) ?? [])
+                .filter { $0.pathExtension == "jsonl" }
+            var parsed: [(url: URL, mtime: Date, entry: FileCache.Entry)] = []
+            for file in files {
+                let rv = try? file.resourceValues(forKeys: Set(keys))
+                let mtime = rv?.contentModificationDate ?? .distantPast
+                guard let entry = FileCache.shared.entry(for: file, size: rv?.fileSize ?? 0, mtime: mtime) else { continue }
+                parsed.append((file, mtime, entry))
+            }
+            // Friendly name = cwd of the most recently modified transcript in the folder.
+            let projectName = parsed.max(by: { $0.mtime < $1.mtime })?.entry.lastCwd
+                .map { ($0 as NSString).lastPathComponent } ?? folder.lastPathComponent
+
+            for (file, _, entry) in parsed {
+                let turns = entry.turns
                 folderTurns += turns
                 for t in turns { folderUsage = folderUsage + t.usage }
                 if let maxTs = turns.map(\.timestamp).max(), maxTs > newestTs {
@@ -121,23 +133,51 @@ public enum LocalStats {
         }
         return family
     }
+}
 
-    /// Reads the `cwd` of the last assistant line in a folder, for a friendly project name.
-    private static func lastCwd(in folder: URL) -> String? {
-        let fm = FileManager.default
-        let files = (try? fm.contentsOfDirectory(at: folder, includingPropertiesForKeys: [.contentModificationDateKey])) ?? []
-        guard let newestFile = files.filter({ $0.pathExtension == "jsonl" })
-            .max(by: { (a, b) in
-                let da = (try? a.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate ?? .distantPast
-                let db = (try? b.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate ?? .distantPast
-                return da < db
-            }),
-            let text = try? String(contentsOf: newestFile, encoding: .utf8) else { return nil }
-        for line in text.split(separator: "\n").reversed() {
-            if let data = line.data(using: .utf8),
-               let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-               let cwd = obj["cwd"] as? String { return cwd }
-        }
-        return nil
+/// Per-file parse cache. Transcripts are append-only, so when a file grows we only
+/// parse the new bytes; unchanged files cost a single stat() per scan.
+final class FileCache {
+    static let shared = FileCache()
+
+    struct Entry {
+        var size: Int
+        var mtime: Date
+        var offset: UInt64              // bytes consumed through the last complete line
+        var committed: JSONLParser.Chunk  // parsed from complete (newline-terminated) lines
+        var tail: JSONLParser.Chunk       // parsed from a trailing partial line, re-done on growth
+
+        var turns: [TranscriptTurn] { committed.turns + tail.turns }
+        var lastCwd: String? { tail.lastCwd ?? committed.lastCwd }
+    }
+
+    private var entries: [String: Entry] = [:]
+    private let lock = NSLock()
+
+    func entry(for url: URL, size: Int, mtime: Date) -> Entry? {
+        lock.lock(); defer { lock.unlock() }
+        let key = url.path
+        var e = entries[key]
+        if let cached = e, cached.size == size, cached.mtime == mtime { return cached }
+        if let cached = e, size < cached.size { e = nil }   // truncated/rewritten: start over
+        var entry = e ?? Entry(size: 0, mtime: mtime, offset: 0, committed: .init(), tail: .init())
+
+        guard let fh = try? FileHandle(forReadingFrom: url) else { return nil }
+        defer { try? fh.close() }
+        guard (try? fh.seek(toOffset: entry.offset)) != nil,
+              let new = try? fh.readToEnd() else { return nil }
+
+        let nl = UInt8(ascii: "\n")
+        let complete = new.lastIndex(of: nl).map { new[new.startIndex...$0] } ?? Data()
+        let rest = new[(complete.endIndex)...]
+        let parsed = JSONLParser.parse(data: complete)
+        entry.committed.turns += parsed.turns
+        if let c = parsed.lastCwd { entry.committed.lastCwd = c }
+        entry.offset += UInt64(complete.count)
+        entry.tail = JSONLParser.parse(data: rest)
+        entry.size = size
+        entry.mtime = mtime
+        entries[key] = entry
+        return entry
     }
 }

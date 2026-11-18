@@ -68,8 +68,11 @@ final class AppViewModel: ObservableObject {
             errorText = nil
             Log.write("refresh: no valid access token (signed out / token missing or refresh failed)")
         }
-        // Local stats are free to refresh every tick.
-        stats = try? LocalStats.scan(projectsRoot: LocalStats.defaultProjectsRoot())
+        // Local stats are cheap after the first scan (incremental cache), but still
+        // do the file I/O + JSON decoding off the main thread so the UI never stalls.
+        stats = await Task.detached(priority: .utility) {
+            try? LocalStats.scan(projectsRoot: LocalStats.defaultProjectsRoot())
+        }.value
         lastUpdated = Date()
     }
 

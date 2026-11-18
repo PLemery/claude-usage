@@ -54,9 +54,15 @@ struct UsagePopover: View {
                         .font(.caption).foregroundStyle(.secondary)
                 }
                 Spacer()
+                Button {
+                    updater.checkForUpdates()
+                } label: {
+                    Image(systemName: "arrow.triangle.2.circlepath")
+                }
+                .buttonStyle(.borderless)
+                .help("Check for Updates…")
                 Button("Refresh") { Task { await vm.refresh() } }
                 if auth.isSignedIn { Button("Sign out") { auth.signOut() } }
-                Button("Check for Updates…") { updater.checkForUpdates() }
                 Button("Quit") { NSApplication.shared.terminate(nil) }
             }
         }

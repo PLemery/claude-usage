@@ -6,6 +6,25 @@
     <description>Updates for Claude Usage</description>
     <language>en</language>
     <item>
+      <title>Version 1.2.1</title>
+      <pubDate>Wed, 18 Nov 2026 02:51:50 +0000</pubDate>
+      <sparkle:version>4</sparkle:version>
+      <sparkle:shortVersionString>1.2.1</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
+      <description><![CDATA[
+        <ul>
+          <li>Fixed high CPU usage: local stats no longer re-read every transcript each refresh (~6s of CPU every 30s → a few milliseconds)</li>
+          <li>Faster startup scan</li>
+          <li>"Check for Updates" is now a compact icon button in the popover</li>
+        </ul>
+      ]]></description>
+      <enclosure
+        url="https://github.com/PLemery/claude-usage/releases/download/v1.2.1/ClaudeUsage.zip"
+        sparkle:edSignature="0g8pQGKB2Q3rcSLV59grQ2rfI133lHnYVeALd5+6taWeT1GZyOSbsWkXodtdAaQKK2JDShupuzJl0QJnseEuCw=="
+        length="2640419"
+        type="application/octet-stream" />
+    </item>
+    <item>
       <title>Version 1.2.0</title>
       <pubDate>Wed, 02 Sep 2026 14:02:04 +0000</pubDate>
       <sparkle:version>3</sparkle:version>
